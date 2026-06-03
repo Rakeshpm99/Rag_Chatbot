@@ -15,3 +15,6 @@ libasound2t64
 libxml2-dev
 libxslt1-dev
 zlib1g-dev
+libatspi2.0-0
+libpango-1.0-0
+libcairo2

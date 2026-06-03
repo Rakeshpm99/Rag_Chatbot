@@ -2,17 +2,17 @@ import os
 import asyncio
 import streamlit as st
 
-@st.cache_resource(show_spinner="Booting stealth browsers for cloud deployment...")
+# 1. Pure Playwright Installation
+@st.cache_resource(show_spinner="Downloading browser binaries...")
 def install_browser():
     os.system("python -m playwright install chromium")
-    os.system("python -m patchright install chromium")
 
 install_browser()
 
 from src import scrape_single_url, chunk_documents, build_vector_store, setup_rag_chain
 
 st.set_page_config(page_title="Web RAG Agent", page_icon="🤖")
-st.title("Rag Chatbot")
+st.title("🤖 Web RAG Agent")
 st.markdown("Scrape any dynamic website and chat with its content securely using RAG.")
 
 if "GROQ_API_KEY" in st.secrets:
@@ -22,9 +22,9 @@ else:
     st.stop()
 
 with st.sidebar:
-    st.header("Ingestion Setup")
+    st.header("⚙️ Ingestion Setup")
     target_url = st.text_input("Target URL", placeholder="https://example.com")
-    
+
     if st.button("Build Knowledge Base"):
         if not target_url:
             st.error("Please provide a valid URL.")
@@ -32,23 +32,23 @@ with st.sidebar:
             with st.spinner("Scraping DOM and building vector database..."):
                 try:
                     docs = asyncio.run(scrape_single_url(target_url))
-                    
+
                     if not docs:
                         st.error("❌ The scraper successfully connected, but found no readable text. The site might be heavily protected by Cloudflare, require a login, or rely entirely on unreadable media.")
                     else:
                         chunks = chunk_documents(docs)
-                        
+
                         if not chunks:
                              st.error("❌ Text was found, but it was too short or improperly formatted to chunk.")
                         else:
                             build_vector_store(chunks)
                             st.session_state["rag_chain"] = setup_rag_chain()
-                            st.success(" Knowledge Base Ready!")
-                            
+                            st.success("🤖 Knowledge Base Ready!")
+
                 except Exception as e:
                     st.error(f"Error during ingestion: {str(e)}")
 
-#Chat Interface
+# Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -60,7 +60,7 @@ if prompt := st.chat_input("Ask a question about the website..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-        
+
     with st.chat_message("assistant"):
         if "rag_chain" in st.session_state:
             with st.spinner("Thinking..."):
