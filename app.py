@@ -2,7 +2,7 @@ import os
 import asyncio
 import streamlit as st
 
-@st.cache_resource(show_spinner="Booting headless browser for cloud deployment (This takes 2-3 mins on first load)...")
+@st.cache_resource(show_spinner="Booting headless browser for cloud deployment...")
 def install_browser():
     os.system("playwright install chromium")
     os.system("playwright install-deps chromium")
@@ -13,7 +13,7 @@ install_browser()
 from src import scrape_single_url, chunk_documents, build_vector_store, setup_rag_chain
 
 st.set_page_config(page_title="Web RAG Agent", page_icon="🤖")
-st.title("🤖 Web RAG Agent")
+st.title("Rag Chatbot")
 st.markdown("Scrape any dynamic website and chat with its content securely using RAG.")
 
 if "GROQ_API_KEY" in st.secrets:
@@ -23,7 +23,7 @@ else:
     st.stop()
 
 with st.sidebar:
-    st.header("⚙️ Ingestion Setup")
+    st.header("Paste the Url!")
     target_url = st.text_input("Target URL", placeholder="https://example.com")
     
     if st.button("Build Knowledge Base"):
@@ -32,15 +32,24 @@ with st.sidebar:
         else:
             with st.spinner("Scraping DOM and building vector database..."):
                 try:
-                    # Run async scraper inside standard synchronous Streamlit thread
                     docs = asyncio.run(scrape_single_url(target_url))
-                    chunks = chunk_documents(docs)
-                    build_vector_store(chunks)
-                    st.session_state["rag_chain"] = setup_rag_chain()
-                    st.success("🤖 Knowledge Base Ready!")
+                    
+                    if not docs:
+                        st.error("❌ The scraper successfully connected, but found no readable text. The site might be heavily protected by Cloudflare, require a login, or rely entirely on unreadable media.")
+                    else:
+                        chunks = chunk_documents(docs)
+                        
+                        if not chunks:
+                             st.error("❌ Text was found, but it was too short or improperly formatted to chunk.")
+                        else:
+                            build_vector_store(chunks)
+                            st.session_state["rag_chain"] = setup_rag_chain()
+                            st.success("🤖 Knowledge Base Ready!")
+                            
                 except Exception as e:
                     st.error(f"Error during ingestion: {str(e)}")
 
+# 5. Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
