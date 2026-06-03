@@ -1,15 +1,28 @@
 import os
+import sys
 import asyncio
 import subprocess
 import streamlit as st
 
-# 1. Safer Cloud Deployment Setup
+# 1. Diagnostic Cloud Deployment Setup
 @st.cache_resource(show_spinner="Booting browser environment for cloud deployment...")
 def install_browser():
     try:
-        subprocess.run(["python", "-m", "playwright", "install", "chromium"], check=True)
+        # We use sys.executable to guarantee it uses Streamlit's exact Python version
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"], 
+            capture_output=True, 
+            text=True
+        )
+        
+        # If the installation fails, print the RAW background logs to the UI
+        if result.returncode != 0:
+            st.error("🚨 Playwright Installation Failed!")
+            st.error(f"**STDOUT:**\n{result.stdout}")
+            st.error(f"**STDERR:**\n{result.stderr}")
+            
     except Exception as e:
-        st.error(f"Failed to install Chromium: {e}")
+        st.error(f"Failed to run subprocess: {e}")
 
 install_browser()
 
@@ -46,7 +59,6 @@ with st.sidebar:
                         st.success("🤖 Knowledge Base Ready!")
                         
                 except Exception as e:
-                    # THIS WILL PRINT OUR RAW ERROR
                     st.error(f"🚨 Diagnostic Error: {str(e)}")
 
 # Chat Interface
