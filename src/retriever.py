@@ -15,7 +15,7 @@ def format_docs(docs):
 
 def setup_rag_chain():
     embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
-    db = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
+    db = Chroma(persist_directory="./chroma_db_test", embedding_function=embeddings)
     retriever = db.as_retriever(search_kwargs={"k": 5})
 
     llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1)
