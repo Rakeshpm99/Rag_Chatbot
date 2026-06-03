@@ -2,11 +2,10 @@ import os
 import asyncio
 import streamlit as st
 
-@st.cache_resource(show_spinner="Booting headless browser for cloud deployment...")
+@st.cache_resource(show_spinner="Booting stealth browsers for cloud deployment...")
 def install_browser():
-    os.system("playwright install chromium")
-    os.system("playwright install-deps chromium")
-    os.system("crawl4ai-setup")
+    os.system("python -m playwright install chromium")
+    os.system("python -m patchright install chromium")
 
 install_browser()
 
@@ -23,7 +22,7 @@ else:
     st.stop()
 
 with st.sidebar:
-    st.header("Paste the Url!")
+    st.header("Ingestion Setup")
     target_url = st.text_input("Target URL", placeholder="https://example.com")
     
     if st.button("Build Knowledge Base"):
@@ -44,12 +43,12 @@ with st.sidebar:
                         else:
                             build_vector_store(chunks)
                             st.session_state["rag_chain"] = setup_rag_chain()
-                            st.success("🤖 Knowledge Base Ready!")
+                            st.success(" Knowledge Base Ready!")
                             
                 except Exception as e:
                     st.error(f"Error during ingestion: {str(e)}")
 
-# 5. Chat Interface
+#Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
