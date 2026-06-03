@@ -10,3 +10,4 @@ sentence-transformers
 sqlalchemy
 python-dotenv
 torchvision
+protobuf<4.0.0
