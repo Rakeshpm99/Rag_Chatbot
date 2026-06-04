@@ -1,11 +1,7 @@
 import asyncio
-import nest_asyncio
 from urllib.parse import urlparse
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
 from langchain_core.documents import Document
-
-nest_asyncio.apply()
-
 
 def is_valid_url(url: str) -> bool:
     try:
@@ -13,7 +9,6 @@ def is_valid_url(url: str) -> bool:
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
-
 
 async def scrape_single_url(url: str) -> list:
     """
@@ -55,9 +50,6 @@ async def scrape_single_url(url: str) -> list:
 
     return docs
 
-
 def scrape_url(url: str) -> list:
     """Sync wrapper for internal use."""
-    return asyncio.get_event_loop().run_until_complete(
-        scrape_single_url(url)
-    )
+    return asyncio.run(scrape_single_url(url))

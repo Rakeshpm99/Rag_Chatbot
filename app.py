@@ -2,19 +2,14 @@ import os
 import sys
 import asyncio
 import subprocess
-import nest_asyncio
 import streamlit as st
-
-nest_asyncio.apply()
-
 
 # ── Browser setup for cloud deployment ────────────────────
 @st.cache_resource(show_spinner="Setting up browser environment...")
 def install_browser():
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "playwright",
-             "install", "chromium"],
+            [sys.executable, "-m", "playwright", "install", "chromium"],
             capture_output=True,
             text=True
         )
@@ -40,9 +35,7 @@ st.set_page_config(
     page_icon="🤖"
 )
 st.title("🤖 Web RAG Agent")
-st.markdown(
-    "Scrape any website and chat with its content using RAG."
-)
+st.markdown("Scrape any website and chat with its content using RAG.")
 
 # ── Groq API key ───────────────────────────────────────────
 if "GROQ_API_KEY" in st.secrets:
@@ -54,10 +47,7 @@ else:
 # ── Sidebar ────────────────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ Knowledge Base Setup")
-    target_url = st.text_input(
-        "Target URL",
-        placeholder="https://example.com"
-    )
+    target_url = st.text_input("Target URL", placeholder="https://example.com")
 
     if st.button("Build Knowledge Base 🚀"):
         if not target_url:
@@ -68,10 +58,9 @@ with st.sidebar:
             # Step 1 — Scrape
             with st.spinner("🌐 Scraping website..."):
                 try:
-                    loop = asyncio.get_event_loop()
-                    docs = loop.run_until_complete(
-                        scrape_single_url(target_url)
-                    )
+                    # Using clean asyncio.run() instead of the nest_asyncio loop hack
+                    docs = asyncio.run(scrape_single_url(target_url))
+                    
                     if not docs:
                         st.error("❌ No content found.")
                         st.stop()
@@ -106,9 +95,7 @@ with st.sidebar:
                 try:
                     st.session_state["rag_chain"] = setup_rag_chain()
                     st.session_state["messages"]  = []
-                    st.success(
-                        f"✅ Ready! {len(chunks)} chunks indexed."
-                    )
+                    st.success(f"✅ Ready! {len(chunks)} chunks indexed.")
                 except Exception as e:
                     st.error(f"🚨 Chain error: {str(e)}")
                     st.stop()
@@ -128,9 +115,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 if prompt := st.chat_input("Ask anything about the website..."):
-    st.session_state.messages.append({
-        "role": "user", "content": prompt
-    })
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
