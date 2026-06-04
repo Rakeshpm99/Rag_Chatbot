@@ -2,66 +2,124 @@ import os
 import sys
 import asyncio
 import subprocess
+import nest_asyncio
 import streamlit as st
 
-# 1. Diagnostic Cloud Deployment Setup
-@st.cache_resource(show_spinner="Booting browser environment for cloud deployment...")
+nest_asyncio.apply()
+
+
+# ── Browser setup for cloud deployment ────────────────────
+@st.cache_resource(show_spinner="Setting up browser environment...")
 def install_browser():
     try:
-        # We use sys.executable to guarantee it uses Streamlit's exact Python version
         result = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"], 
-            capture_output=True, 
+            [sys.executable, "-m", "playwright",
+             "install", "chromium"],
+            capture_output=True,
             text=True
         )
-        
-        # If the installation fails, print the RAW background logs to the UI
         if result.returncode != 0:
-            st.error("🚨 Playwright Installation Failed!")
-            st.error(f"**STDOUT:**\n{result.stdout}")
-            st.error(f"**STDERR:**\n{result.stderr}")
-            
+            st.error("🚨 Playwright install failed!")
+            st.error(f"STDOUT: {result.stdout}")
+            st.error(f"STDERR: {result.stderr}")
     except Exception as e:
-        st.error(f"Failed to run subprocess: {e}")
+        st.error(f"Subprocess error: {e}")
 
 install_browser()
 
-from src import scrape_single_url, chunk_documents, build_vector_store, setup_rag_chain
+from src import (
+    scrape_single_url,
+    chunk_documents,
+    build_vector_store,
+    setup_rag_chain
+)
 
-st.set_page_config(page_title="Web RAG Agent", page_icon="🤖")
+# ── Page config ────────────────────────────────────────────
+st.set_page_config(
+    page_title="Web RAG Agent",
+    page_icon="🤖"
+)
 st.title("🤖 Web RAG Agent")
-st.markdown("Scrape any website and chat with its content securely using RAG.")
+st.markdown(
+    "Scrape any website and chat with its content using RAG."
+)
 
+# ── Groq API key ───────────────────────────────────────────
 if "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 else:
-    st.error("❌ GROQ_API_KEY missing in Streamlit Advanced Settings -> Secrets!")
+    st.error("❌ GROQ_API_KEY missing in Streamlit Secrets!")
     st.stop()
 
+# ── Sidebar ────────────────────────────────────────────────
 with st.sidebar:
-    st.header("⚙️ Ingestion Setup")
-    target_url = st.text_input("Target URL", placeholder="https://example.com")
-    
-    if st.button("Build Knowledge Base"):
-        if not target_url:
-            st.error("Please provide a valid URL.")
-        else:
-            with st.spinner("Scraping DOM and building vector database..."):
-                try:
-                    docs = asyncio.run(scrape_single_url(target_url))
-                    chunks = chunk_documents(docs)
-                    
-                    if not chunks:
-                         st.error("❌ Text was found, but it was too short or improperly formatted to chunk.")
-                    else:
-                        build_vector_store(chunks)
-                        st.session_state["rag_chain"] = setup_rag_chain()
-                        st.success("🤖 Knowledge Base Ready!")
-                        
-                except Exception as e:
-                    st.error(f"🚨 Diagnostic Error: {str(e)}")
+    st.header("⚙️ Knowledge Base Setup")
+    target_url = st.text_input(
+        "Target URL",
+        placeholder="https://example.com"
+    )
 
-# Chat Interface
+    if st.button("Build Knowledge Base 🚀"):
+        if not target_url:
+            st.error("Please enter a valid URL.")
+        elif not target_url.startswith("http"):
+            st.error("URL must start with http:// or https://")
+        else:
+            # Step 1 — Scrape
+            with st.spinner("🌐 Scraping website..."):
+                try:
+                    loop = asyncio.get_event_loop()
+                    docs = loop.run_until_complete(
+                        scrape_single_url(target_url)
+                    )
+                    if not docs:
+                        st.error("❌ No content found.")
+                        st.stop()
+                    st.info(f"📄 Scraped {len(docs)} page(s)")
+                except Exception as e:
+                    st.error(f"🚨 Scrape error: {str(e)}")
+                    st.stop()
+
+            # Step 2 — Chunk
+            with st.spinner("✂️ Chunking content..."):
+                try:
+                    chunks = chunk_documents(docs)
+                    if not chunks:
+                        st.error("❌ Content too short.")
+                        st.stop()
+                    st.info(f"✂️ {len(chunks)} chunks created")
+                except Exception as e:
+                    st.error(f"🚨 Chunk error: {str(e)}")
+                    st.stop()
+
+            # Step 3 — Embed + store
+            with st.spinner("💾 Building vector store..."):
+                try:
+                    build_vector_store(chunks)
+                    st.info("💾 Vector store ready!")
+                except Exception as e:
+                    st.error(f"🚨 Vector store error: {str(e)}")
+                    st.stop()
+
+            # Step 4 — RAG chain
+            with st.spinner("🔗 Setting up RAG chain..."):
+                try:
+                    st.session_state["rag_chain"] = setup_rag_chain()
+                    st.session_state["messages"]  = []
+                    st.success(
+                        f"✅ Ready! {len(chunks)} chunks indexed."
+                    )
+                except Exception as e:
+                    st.error(f"🚨 Chain error: {str(e)}")
+                    st.stop()
+
+    # Status
+    if "rag_chain" in st.session_state:
+        st.success("✅ Knowledge base active")
+    else:
+        st.info("⬆️ Enter a URL to get started")
+
+# ── Chat ───────────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -69,16 +127,25 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask a question about the website..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+if prompt := st.chat_input("Ask anything about the website..."):
+    st.session_state.messages.append({
+        "role": "user", "content": prompt
+    })
     with st.chat_message("user"):
         st.markdown(prompt)
-        
+
     with st.chat_message("assistant"):
-        if "rag_chain" in st.session_state:
-            with st.spinner("Thinking..."):
-                response = st.session_state["rag_chain"].invoke(prompt)
-                st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
+        if "rag_chain" not in st.session_state:
+            st.warning("⚠️ Please load a URL first.")
         else:
-            st.warning("Please enter a URL and click 'Build Knowledge Base' in the sidebar first.")
+            try:
+                # Streaming — words appear as generated
+                response = st.write_stream(
+                    st.session_state["rag_chain"].stream(prompt)
+                )
+                st.session_state.messages.append({
+                    "role":    "assistant",
+                    "content": response
+                })
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
