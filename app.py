@@ -25,7 +25,7 @@ from src import (
 )
 
 st.set_page_config(
-    page_title="Enterprise Web RAG Agent",
+    page_title="Rag Chatbot",
     layout="centered"
 )
 
@@ -34,20 +34,21 @@ st.markdown("""
         .reportview-container {
             background: #ffffff;
         }
-        div.stButton > button:first-child {
+        div.stFormSubmitButton > button:first-child {
             background-color: #0f172a;
             color: #ffffff;
             border-radius: 4px;
             border: none;
+            width: 100%;
         }
-        div.stButton > button:first-child:hover {
+        div.stFormSubmitButton > button:first-child:hover {
             background-color: #1e293b;
             color: #ffffff;
         }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Web RAG Analytics Platform")
+st.title("Rag Chatbot For Webite ")
 st.markdown("Extract web documentation into a semantic knowledge base for localized analysis.")
 st.markdown("---")
 
@@ -72,7 +73,7 @@ if "messages" not in st.session_state:
 
 st.subheader("Knowledge Base Configuration")
 
-with st.container():
+with st.form(key="kb_construction_form", clear_on_submit=False):
     col1, col2 = st.columns([3, 1], vertical_alignment="bottom")
     
     with col1:
@@ -83,45 +84,46 @@ with st.container():
         )
     
     with col2:
-        build_btn = st.button("Build Database", use_container_width=True)
+        build_btn = st.form_submit_button("Build Database", use_container_width=True)
 
-    if build_btn:
-        if not target_url:
-            st.error("Validation Error: Please enter a URL source.")
-        elif not target_url.startswith("http"):
-            st.error("Validation Error: URL protocol must start with http:// or https://")
-        else:
-            with st.spinner("Executing document scraping..."):
-                try:
-                    docs = asyncio.run(scrape_single_url(target_url))
-                    if not docs:
-                        st.error("Ingestion Failure: Content retrieval returned empty dataset.")
-                        st.stop()
-                except Exception as e:
-                    st.error(f"Ingestion Failure: {str(e)}")
+if build_btn:
+    if not target_url:
+        st.error("Validation Error: Please enter a URL source.")
+    elif not target_url.startswith("http"):
+        st.error("Validation Error: URL protocol must start with http:// or https://")
+    else:
+        with st.spinner("Executing document scraping..."):
+            try:
+                docs = asyncio.run(scrape_single_url(target_url))
+                if not docs:
+                    st.error("Ingestion Failure: Content retrieval returned empty dataset.")
                     st.stop()
+            except Exception as e:
+                st.error(f"Ingestion Failure: {str(e)}")
+                st.stop()
 
-            with st.spinner("Processing structural text segmentation..."):
-                try:
-                    chunks = chunk_documents(docs)
-                    if not chunks:
-                        st.error("Segmentation Failure: Extracted content falls below structural threshold.")
-                        st.stop()
-                except Exception as e:
-                    st.error(f"Segmentation Failure: {str(e)}")
+        with st.spinner("Processing structural text segmentation..."):
+            try:
+                chunks = chunk_documents(docs)
+                if not chunks:
+                    st.error("Segmentation Failure: Extracted content falls below structural threshold.")
                     st.stop()
+            except Exception as e:
+                st.error(f"Segmentation Failure: {str(e)}")
+                st.stop()
 
-            with st.spinner("Generating local vector space index..."):
-                try:
-                    build_vector_store(chunks)
-                except Exception as e:
-                    st.error(f"Indexing Failure: {str(e)}")
-                    st.stop()
+        with st.spinner("Generating local vector space index..."):
+            try:
+                build_vector_store(chunks)
+            except Exception as e:
+                st.error(f"Indexing Failure: {str(e)}")
+                st.stop()
 
-            st.session_state["build_id"] += 1
-            st.session_state["messages"] = []
-            st.session_state["active_source"] = target_url
-            st.toast("Knowledge base compiled successfully.")
+        st.session_state["build_id"] += 1
+        st.session_state["messages"] = []
+        st.session_state["active_source"] = target_url
+        st.toast("Knowledge base compiled successfully.")
+        st.rerun()
 
 if st.session_state["build_id"] > 0:
     st.info(f"Active Index Source: {st.session_state['active_source']}")
