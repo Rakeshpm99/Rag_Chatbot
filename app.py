@@ -4,21 +4,16 @@ import asyncio
 import subprocess
 import streamlit as st
 
-# ── Browser setup for cloud deployment ────────────────────
-@st.cache_resource(show_spinner="Setting up browser environment...")
+@st.cache_resource(show_spinner="Initializing browser environment...")
 def install_browser():
     try:
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
             capture_output=True,
             text=True
         )
-        if result.returncode != 0:
-            st.error("🚨 Playwright install failed!")
-            st.error(f"STDOUT: {result.stdout}")
-            st.error(f"STDERR: {result.stderr}")
     except Exception as e:
-        st.error(f"Subprocess error: {e}")
+        pass
 
 install_browser()
 
@@ -29,108 +24,134 @@ from src import (
     setup_rag_chain
 )
 
-# ── Page config ────────────────────────────────────────────
 st.set_page_config(
-    page_title="Web RAG Agent",
-    page_icon="🤖"
+    page_title="Enterprise Web RAG Agent",
+    layout="centered"
 )
-st.title("🤖 Web RAG Agent")
-st.markdown("Scrape any website and chat with its content using RAG.")
 
-# ── Groq API key ───────────────────────────────────────────
+st.markdown("""
+    <style>
+        .reportview-container {
+            background: #ffffff;
+        }
+        div.stButton > button:first-child {
+            background-color: #0f172a;
+            color: #ffffff;
+            border-radius: 4px;
+            border: none;
+        }
+        div.stButton > button:first-child:hover {
+            background-color: #1e293b;
+            color: #ffffff;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("Web RAG Analytics Platform")
+st.markdown("Extract web documentation into a semantic knowledge base for localized analysis.")
+st.markdown("---")
+
 if "GROQ_API_KEY" in st.secrets:
     os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 else:
-    st.error("❌ GROQ_API_KEY missing in Streamlit Secrets!")
+    st.error("Configuration Error: GROQ_API_KEY missing in Streamlit Secrets.")
     st.stop()
 
-# ── Sidebar ────────────────────────────────────────────────
-with st.sidebar:
-    st.header("⚙️ Knowledge Base Setup")
-    target_url = st.text_input("Target URL", placeholder="https://example.com")
+@st.cache_resource
+def get_cached_rag_chain(build_id: int):
+    """
+    Caches the chain infrastructure in memory. 
+    The build_id parameter forces a cache refresh only when a new database is compiled.
+    """
+    return setup_rag_chain()
 
-    if st.button("Build Knowledge Base 🚀"):
+if "build_id" not in st.session_state:
+    st.session_state["build_id"] = 0
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+st.subheader("Knowledge Base Configuration")
+
+with st.container():
+    col1, col2 = st.columns([3, 1], vertical_alignment="bottom")
+    
+    with col1:
+        target_url = st.text_input(
+            "Target URL Source",
+            placeholder="https://example.com/docs",
+            label_visibility="visible"
+        )
+    
+    with col2:
+        build_btn = st.button("Build Database", use_container_width=True)
+
+    if build_btn:
         if not target_url:
-            st.error("Please enter a valid URL.")
+            st.error("Validation Error: Please enter a URL source.")
         elif not target_url.startswith("http"):
-            st.error("URL must start with http:// or https://")
+            st.error("Validation Error: URL protocol must start with http:// or https://")
         else:
-            # Step 1 — Scrape
-            with st.spinner("🌐 Scraping website..."):
+            with st.spinner("Executing document scraping..."):
                 try:
-                    # Using clean asyncio.run() instead of the nest_asyncio loop hack
                     docs = asyncio.run(scrape_single_url(target_url))
-                    
                     if not docs:
-                        st.error("❌ No content found.")
+                        st.error("Ingestion Failure: Content retrieval returned empty dataset.")
                         st.stop()
-                    st.info(f"📄 Scraped {len(docs)} page(s)")
                 except Exception as e:
-                    st.error(f"🚨 Scrape error: {str(e)}")
+                    st.error(f"Ingestion Failure: {str(e)}")
                     st.stop()
 
-            # Step 2 — Chunk
-            with st.spinner("✂️ Chunking content..."):
+            with st.spinner("Processing structural text segmentation..."):
                 try:
                     chunks = chunk_documents(docs)
                     if not chunks:
-                        st.error("❌ Content too short.")
+                        st.error("Segmentation Failure: Extracted content falls below structural threshold.")
                         st.stop()
-                    st.info(f"✂️ {len(chunks)} chunks created")
                 except Exception as e:
-                    st.error(f"🚨 Chunk error: {str(e)}")
+                    st.error(f"Segmentation Failure: {str(e)}")
                     st.stop()
 
-            # Step 3 — Embed + store
-            with st.spinner("💾 Building vector store..."):
+            with st.spinner("Generating local vector space index..."):
                 try:
                     build_vector_store(chunks)
-                    st.info("💾 Vector store ready!")
                 except Exception as e:
-                    st.error(f"🚨 Vector store error: {str(e)}")
+                    st.error(f"Indexing Failure: {str(e)}")
                     st.stop()
 
-            # Step 4 — RAG chain
-            with st.spinner("🔗 Setting up RAG chain..."):
-                try:
-                    st.session_state["rag_chain"] = setup_rag_chain()
-                    st.session_state["messages"]  = []
-                    st.success(f"✅ Ready! {len(chunks)} chunks indexed.")
-                except Exception as e:
-                    st.error(f"🚨 Chain error: {str(e)}")
-                    st.stop()
+            st.session_state["build_id"] += 1
+            st.session_state["messages"] = []
+            st.session_state["active_source"] = target_url
+            st.toast("Knowledge base compiled successfully.")
 
-    # Status
-    if "rag_chain" in st.session_state:
-        st.success("✅ Knowledge base active")
-    else:
-        st.info("⬆️ Enter a URL to get started")
+if st.session_state["build_id"] > 0:
+    st.info(f"Active Index Source: {st.session_state['active_source']}")
+    rag_chain = get_cached_rag_chain(st.session_state["build_id"])
+else:
+    st.warning("System Status: Awaiting valid data source initialization.")
+    rag_chain = None
 
-# ── Chat ───────────────────────────────────────────────────
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+st.markdown("---")
+
+st.subheader("Query Workspace")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask anything about the website..."):
+if prompt := st.chat_input("Enter evaluation query..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        if "rag_chain" not in st.session_state:
-            st.warning("⚠️ Please load a URL first.")
+        if rag_chain is None:
+            st.warning("Action Required: Please initialize a URL source above to populate the knowledge base index.")
         else:
             try:
-                # Streaming — words appear as generated
-                response = st.write_stream(
-                    st.session_state["rag_chain"].stream(prompt)
-                )
+                response = st.write_stream(rag_chain.stream(prompt))
                 st.session_state.messages.append({
-                    "role":    "assistant",
+                    "role": "assistant",
                     "content": response
                 })
             except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                st.error(f"Execution Error: {str(e)}")
