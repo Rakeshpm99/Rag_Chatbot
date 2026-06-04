@@ -15,7 +15,11 @@ def is_valid_url(url: str) -> bool:
         return False
 
 
-async def _scrape_async(url: str) -> list:
+async def scrape_single_url(url: str) -> list:
+    """Async scraper — called directly from app.py"""
+    if not is_valid_url(url):
+        raise ValueError(f"Invalid URL: {url}")
+
     browser_cfg = BrowserConfig(
         headless=True,
         enable_stealth=True
@@ -38,20 +42,18 @@ async def _scrape_async(url: str) -> list:
                     page_content=result.markdown,
                     metadata={"source": result.url}
                 ))
-                print(f"✅ Scraped successfully!")
+                print("✅ Scraped successfully!")
             else:
                 print(f"❌ Failed: {result.error_message}")
 
     except Exception as e:
-        print(f"🚨 Connection error: {e}")
+        print(f"🚨 Error: {e}")
 
     return docs
 
 
 def scrape_url(url: str) -> list:
-    if not is_valid_url(url):
-        raise ValueError(f"Invalid URL: {url}")
-
+    """Sync wrapper for internal use."""
     return asyncio.get_event_loop().run_until_complete(
-        _scrape_async(url)
+        scrape_single_url(url)
     )
