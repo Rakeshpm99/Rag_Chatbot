@@ -1,40 +1,49 @@
-# RAG Chatbot: Intelligent Web-RAG Pipeline
+# RAG-Powered Website Chatbot
 
-A high-performance, private Retrieval-Augmented Generation (RAG) chatbot designed to ingest, process, and query complex web content with minimal latency.
+A high-performance,  Retrieval-Augmented Generation (RAG) chatbot designed to  scrapes any website and answers questions with minimal latency.
 
 ## 🔗 Live Demo
 Experience the application live here: [https://rag-web-chatbot.streamlit.app](https://rag-web-chatbot.streamlit.app)
 
-## 🚀 Overview
-This project addresses the challenge of extracting and synthesizing information from large, unstructured web data. By utilizing a localized vector space and optimized chunking strategies, this chatbot provides fast, accurate answers while maintaining complete data privacy and high performance.
+## 📌 Problem Statement
+Build a chatbot that can ingest any given URL, scrape relevant
+content, and use RAG to answer user questions accurately based
+on the collected content — with minimal latency and robust
+handling of structured and unstructured data.
 
 ## 🏗️ Architecture
-The system utilizes a modular, high-efficiency pipeline designed for precision:
-1. **Web Scraping**: Efficient HTML extraction and noise filtering.
-2. **Intelligent Chunking**: Document-aware splitting using **Markdown Header Splitters** for structure and **Recursive Character Splitters** for prose.
-3. **Embedding & Vector Storage**: High-speed, local vectorization via ChromaDB.
-4. **LLM Synthesis**: Streaming inference for real-time, low-latency responses.
-
+URL Input → Crawl4AI Scraper → Smart Chunker → BAAI Embeddings → ChromaDB → LLM → Answer
 
 
 ## ⚙️ Key Technical Features
-* **Minimal Latency Architecture**: Achieved via `@st.cache_resource` for state persistence and localized, in-memory vector storage, eliminating cloud bottlenecks.
-* **Robust Data Handling**: Preserves structural integrity of complex elements like tables through layout-aware Markdown splitting, preventing the data fragmentation common in standard RAG pipelines.
-* **Asynchronous Ingestion**: Non-blocking scraping ensures the system remains responsive during data indexing.
-* **Streaming Inference**: Near-instant "Time-To-First-Token" for a fluid, expert-level user experience.
+**⚡ Minimum Latency**
+- SQLiteCache — repeat questions answered instantly, zero API calls
+- Added Streaming on ChatGroq — words appear as generated
+- Used lightweight emdedding model, loads once, stays cached
+- `word_count_threshold=10` discards empty pages and boilerplate, ensuring only dense, high-value content reaches the vector index.
+- `magic=True` on Crawl4AI — instant clean markdown extraction
+  
+**📊 Structured & Unstructured Data**
+- Auto-detects content type using `re.search(r'\|[-:]+\|', text)`
+- Tables → `MarkdownHeaderTextSplitter` keeps headers attached to rows
+- Plain text → `RecursiveCharacterTextSplitter` with 1000 char chunks
+- 150 char overlap prevents context loss at chunk boundaries
+- Chunks under 30 chars filtered out automatically
+- Falls back to recursive splitting if markdown parsing fails
+
 
 ## 🛠️ Tech Stack
-* **Framework**: Streamlit
-* **Orchestration**: LangChain
-* **Vector Database**: ChromaDB
-* **Scraping**: Playwright / Async-enabled utilities
+* **Scraping**: Crawl4ai
 * **Embeddings**: HuggingFace (Local)
+* **Vector Database**: ChromaDB
+* **Orchestration**: LangChain
+* **UI**: Streamlit
 
-## 📦 Usage
+
+##  🚀 Setup & Usage
 1. Clone the repository.
 2. Install dependencies: `pip install -r requirements.txt`.
-3. Run the application: `streamlit run app.py`.
-4. Input a URL, build the knowledge base, and start querying!
+3. Set your Groq API key : `GROQ_API_KEY="your_key_here"` 
+4. Run the application: `streamlit run app.py`.
 
 ---
-*Engineered for real-world reliability and precise information synthesis.*
